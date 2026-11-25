@@ -2,7 +2,7 @@
 
 The user has read a `/daily` digest (or an `/apply` result) and picked applications, for example
 "yes to 1 and 3". You fill in each employer's application form in the browser, upload the
-prepared files, and stop at the final submit button for the user, unless they have said in
+prepared files (preparing them first if they don't exist yet), and stop at the final submit button for the user, unless they have said in
 this conversation that you may press it for these specific applications.
 
 `$ARGUMENTS` holds the picks: digest numbers ("1, 3"), or company names. With no digest number
@@ -16,6 +16,15 @@ context, read the latest `documents/daily/*.md`.
 - Load the candidate's details from `01-candidate-profile.md` (name, email, phone, town,
   right to work, notice period, driving licence) and any drafted form fields in
   `documents/applications/<company>_<role>/`.
+
+## Prepare anything not yet written
+
+For each pick that has no prepared CV and cover letter yet (the default `/daily` lists jobs
+without drafting them), run the full `/apply` workflow on its advert link first: fit check,
+drafting, reviewer, critic and design pass, PDF checks, tracker row `drafted`. If `/apply`
+rates the fit below 60 or finds the advert closed, tell the user and skip that pick. When
+several picks need preparing, prepare them all before opening any form, then show the user each
+application's critic scores and file names in one message.
 
 ## For each picked application
 
