@@ -1,0 +1,24 @@
+{
+  "_readme": "Employers whose own career pages are searched directly. Add a name and careers page, then run `discover-all` to fill in ats/slug automatically. Entries without ats/slug are skipped by search. Large employers with in-house systems (Google, Meta, BBC, Emirates) are found through Reed, Adzuna and web search instead.",
+  "employers": [
+    { "name": "Konami Digital Entertainment", "careers": "https://www.konami.com/games/eu/en/careers/", "tags": ["creative", "gaming", "dream"] },
+    { "name": "Sony Interactive Entertainment", "careers": "https://www.playstation.com/en-gb/corporate/playstation-careers/", "tags": ["creative", "gaming", "dream"] },
+    { "name": "Nintendo UK", "careers": "https://www.nintendo.com/en-gb/Careers/Careers-at-Nintendo-UK-1484407.html", "tags": ["creative", "gaming", "dream"] },
+    { "name": "Ogilvy", "careers": "https://www.ogilvy.com/careers", "tags": ["creative", "advertising", "dream"] },
+    { "name": "VCCP", "careers": "https://www.vccp.com/careers", "tags": ["creative", "advertising", "dream"] },
+    { "name": "MullenLowe", "careers": "https://mullenlowe.co.uk/careers/", "tags": ["creative", "advertising"] },
+    { "name": "Little Dot Studios", "careers": "https://www.littledotstudios.com/careers", "tags": ["creative", "media", "production"] },
+    { "name": "Casual Films", "careers": "https://casualfilms.com/careers/", "tags": ["creative", "production", "dream"] },
+    { "name": "Pinewood Group", "careers": "https://pinewoodgroup.com/careers", "tags": ["creative", "production", "dream"] },
+    { "name": "Sky", "careers": "https://careers.sky.com/", "tags": ["creative", "media", "dream"] },
+    { "name": "Virgin Media O2", "careers": "https://careers.virginmediao2.co.uk/", "tags": ["media", "tech"] },
+    { "name": "Patsnap", "careers": "https://www.patsnap.com/careers/", "tags": ["tech", "sales"] },
+    { "name": "Softwire", "careers": "https://www.softwire.com/careers/", "tags": ["tech"] },
+    { "name": "Monzo", "careers": "https://monzo.com/careers", "ats": "greenhouse", "slug": "monzo", "tags": ["tech", "finance"] },
+    { "name": "Liquidnet", "careers": "https://www.liquidnet.com/careers", "tags": ["finance"] },
+    { "name": "Trailfinders", "careers": "https://www.trailfinders.com/careers", "tags": ["travel"] },
+    { "name": "Virgin Atlantic", "careers": "https://careersuk.virgin-atlantic.com/", "tags": ["airline"] },
+    { "name": "Swissport", "careers": "https://www.swissport.com/en/careers", "tags": ["airline"] },
+    { "name": "dnata", "careers": "https://www.dnata.com/en/careers", "tags": ["airline"] }
+  ]
+}

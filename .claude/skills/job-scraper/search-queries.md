@@ -21,6 +21,21 @@ Primary (your market's job boards - scaffold one with `/add-portal`):
 Secondary (company career pages via Google):
 - Direct Google searches with `site:` filters for known target companies
 
+### UK market (portals shipped in this fork)
+
+This fork ships UK portal CLIs in `.agents/skills/`: `reed-search` (Reed.co.uk, free API key), `adzuna-search` (Adzuna aggregator, free API key), `freehire-search` (tech roles, use `--region uk`), and `uk-employer-careers` (named employers' own career pages). Indeed is searched through the Indeed connector when it is connected. Keys go in `.env`; see `UK_GUIDE.md`.
+
+UK boards with no API, searched through the WebSearch fallback (`site:` lines in each priority):
+- `findajob.dwp.gov.uk` (GOV.UK Find a Job)
+- `civilservicejobs.service.gov.uk` (Civil Service)
+- `jobs.nhs.uk` (NHS)
+- `totaljobs.com`, `cv-library.co.uk`, `jobs.theguardian.com`, `jobsite.co.uk`
+- `w4mpjobs.org` (politics and charities), `charityjob.co.uk`
+- `prospects.ac.uk`, `gradcracker.com`, `brightnetwork.co.uk`, `ratemyplacement.co.uk` (graduate schemes and apprenticeships)
+- `the-dots.com`, `creativepool.com`, `runthecheck.com` (creative and media)
+
+Always confirm an advert is still open on the employer's own page before recommending it: board copies stay up after the real advert closes.
+
 ## Query Categories
 
 Queries are grouped by priority. Write **each category in every language from your Languages table** (see Language scope above). Combine each query with your location terms (e.g. your city, region, or metro area) where the site supports it.

@@ -1,0 +1,10 @@
+{
+  "name": "uk-employer-careers",
+  "version": "1.0.0",
+  "description": "UK job portal CLI for AI Job Search. Zero runtime dependencies; runs with plain bun.",
+  "type": "module",
+  "main": "src/cli.ts",
+  "scripts": { "start": "bun run src/cli.ts", "test": "bun test" },
+  "dependencies": {},
+  "devDependencies": { "@types/bun": "1.4.4" }
+}

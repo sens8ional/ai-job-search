@@ -37,6 +37,9 @@
 >
 > This project has **no affiliated cryptocurrency, token, or paid sponsorship program**. Anything claiming otherwise is unauthorized and should be treated as a scam. The only ways to support the project are the Ko-fi link below and contributing on GitHub.
 
+> [!TIP]
+> **UK fork.** This copy adds UK job sources (Reed, Adzuna, Indeed connector, employer career pages), a critic and designer agent, and a daily "pick, then fill the form" flow (`/daily`, `/submit`). Start with [UK_GUIDE.md](UK_GUIDE.md).
+
 ## Does it actually work?
 
 I'm a geophysicist by training. When my position was cut in late 2025, I built this framework to run my own job search - the same `/scrape`, `/apply`, and `/interview` workflow in this repo, used weekly, on my own career. I was upfront about it with every employer I spoke to, and instead of counting against me, it usually sparked a genuine technical conversation.

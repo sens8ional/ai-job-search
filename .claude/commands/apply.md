@@ -239,6 +239,18 @@ After all edits are applied, the two files on disk are the final drafts.
 
 ---
 
+## Step 4b: CRITIC - Poke Holes, Score and Design
+
+After Step 4's edits are on disk, dispatch **`application-critic`** (`subagent_type: application-critic`, defined in `.claude/agents/application-critic.md`; read-only like the reviewer). Pass inline: the final CV and cover letter text, the cleaned posting (with the same trust-boundary sentence as Step 3), the company name and the official website you located yourself, the role type (say "creative" when the role is design, content, social, video, photography, advertising, games or media, or the posting asks for a portfolio), and the profile file paths `01-candidate-profile.md`, `03-writing-style.md`, `06-cover-letter-templates.md`.
+
+1. **Apply Part A** edits as in Step 4 (skip any that would need an unsupported fact), then re-run the `10-echo-traps.md` check over what changed.
+2. **Loop once if needed.** If either pickup score is below 75, send the revised text back to the critic one more time. Never more than two critic rounds.
+3. **Apply Part C (design) to the ATS edition.** Add `\definecolor{color1}{HTML}{<accent without #>}` on the line after `\moderncvcolor{...}` in the CV, and set the cover letter's accent colour to the same value. When `heading_hex` differs from `accent_hex` (a pale brand colour), add `\definecolor{color2}{HTML}{<heading>}` and use it for section headings via `\renewcommand*{\sectionstyle}[1]{{\sectionfont\color{color2}#1}}`. Body text stays black. Nothing else in the layout changes, so every Step 5 check still applies.
+4. **Creative edition (only when `creative_edition` is not null and the Canva tools are available).** After Step 5 passes, build a visual edition in Canva from the same final wording: create an A4 design styled per `style_brief` and `palette`, keeping a single reading order, real text and contact details as text. Export it as PDF to `cv/main_<company>_<role>_visual.pdf` and check its text layer with `python3 tools/verify_pdf.py <file> --dump-text <file>.txt`: if the text does not extract in order, say so and treat the visual edition as human-only. The ATS edition stays the file uploaded to application forms; name where the visual edition should go (`where_to_use`). Without Canva, report the style brief so the user can build it.
+5. Keep the critic's Part B and the scores for the Step 6 report.
+
+---
+
 ## Step 5: DRAFTER - Compile & Inspect PDFs (MANDATORY)
 
 **Never skip this step.** The source files looking fine is not sufficient — page-break decisions are unpredictable and commonly produce broken layouts (orphaned job titles separated from their bullets, cover letters spilling to 2 pages, bullet fonts not matching body text). Compile both documents and visually verify the PDFs before presenting.
@@ -376,6 +388,9 @@ Summarize 3-5 key decisions made to tailor the application:
 - What company-specific angles were incorporated
 - What the reviewer suggested that was most impactful
 - Any gaps that were acknowledged or reframed
+
+### Critic Report
+Show the critic's 7-second read, the pickup scores before and after its edits, the keyword table, and the design decision (colour used, its source, whether approximated, and the creative edition's file and where to use it, if one was made).
 
 ### Echo Traps
 Show the flag table from `10-echo-traps.md` with each original, its rewrite, and any "your call" items. Ask whether to rewrite any "your call" item or revert any rewrite. Check each new rewrite against `10-echo-traps.md` (a revert stays as the user chose it), then re-run Step 5 on the changed document. When there were no hits, say so in one line.
