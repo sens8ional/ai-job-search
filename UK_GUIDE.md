@@ -5,13 +5,16 @@ You choose which applications to send. Everything else is prepared for you.
 
 ## What happens each day
 
-1. **`/daily`** searches UK job sources, ranks what it finds against your profile, and fully
-   prepares the best few: a tailored CV, a cover letter, answers to form questions, all checked
-   by two reviewers. It writes a short digest to `documents/daily/<date>.md`.
+1. **`/daily`** searches UK job sources, ranks what it finds against your profile, checks each
+   advert is still open, and writes a short list of **at least 5** good matches to
+   `documents/daily/<date>.md`. It writes no CVs yet, which keeps each run light.
 2. **You reply** with something like "yes to 1 and 3".
-3. **`/submit 1, 3`** opens each employer's application form in the browser, fills it in,
-   uploads your files and stops at the Submit button so you can glance over it. It submits only
-   when you say so.
+3. **`/submit 1, 3`** writes the tailored CV and cover letter for those jobs (checked by the
+   reviewer and the critic), then opens each employer's application form in the browser, fills
+   it in, uploads the files and stops at the Submit button so you can glance over it. It submits
+   only when you say so.
+
+Want applications drafted before you pick? Run `/daily --prepare 3`.
 
 Nothing is ever sent without your say-so, and LinkedIn and Indeed "easy apply" logins are never
 automated (their rules forbid it and accounts get banned).
