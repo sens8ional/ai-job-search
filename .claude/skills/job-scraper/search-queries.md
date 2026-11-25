@@ -29,7 +29,8 @@ UK boards with no API, searched through the WebSearch fallback (`site:` lines in
 - `findajob.dwp.gov.uk` (GOV.UK Find a Job)
 - `civilservicejobs.service.gov.uk` (Civil Service)
 - `jobs.nhs.uk` (NHS)
-- `totaljobs.com`, `cv-library.co.uk`, `jobs.theguardian.com`, `jobsite.co.uk`
+- `totaljobs.com`, `jobs.theguardian.com` (Guardian Jobs), `cv-library.co.uk`, `jobsite.co.uk`
+- `linkedin.com/jobs/view` (LinkedIn): found through web search results only. LinkedIn's terms forbid automated access, so the engine never logs in, never scrapes LinkedIn pages directly and never uses Easy Apply; for a LinkedIn advert it looks for the same role on the employer's own site and applies there.
 - `w4mpjobs.org` (politics and charities), `charityjob.co.uk`
 - `prospects.ac.uk`, `gradcracker.com`, `brightnetwork.co.uk`, `ratemyplacement.co.uk` (graduate schemes and apprenticeships)
 - `the-dots.com`, `creativepool.com`, `runthecheck.com` (creative and media)

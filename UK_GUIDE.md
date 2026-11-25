@@ -26,6 +26,7 @@ automated (their rules forbid it and accounts get banned).
 | Employers' own career pages | `.agents/skills/uk-employer-careers` | Edit `employers.json`, then run `bun run .agents/skills/uk-employer-careers/cli/src/cli.ts discover-all` |
 | UK tech roles | `freehire-search` with `--region uk` | Nothing |
 | GOV.UK Find a Job, Civil Service Jobs, NHS Jobs, Totaljobs, CV-Library, Guardian Jobs, graduate and creative boards | Web search fallback | Nothing |
+| LinkedIn | Web search results only (no login, no direct scraping, no Easy Apply); applies on the employer's own site | Nothing |
 
 `.env` is never committed to git.
 
