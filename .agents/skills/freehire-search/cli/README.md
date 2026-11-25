@@ -1,13 +1,13 @@
 # freehire-cli
 
-CLI for searching the [freehire.dev](https://freehire.dev) job aggregator across
+CLI for searching the [freehire.me](https://freehire.me) job aggregator across
 **many markets** (tech-focused), via its public JSON API.
 
-**Data source**: freehire.dev REST API (`/api/v1/jobs/search`, `/api/v1/jobs/facets`, `/api/v1/jobs/{slug}`).
+**Data source**: freehire.me REST API (`/api/v1/agent/jobs/search`, `/api/v1/jobs/search` for `--no-description`, `/api/v1/jobs/facets`, `/api/v1/jobs/{slug}`).
 **Authentication**: None required — reads are public (only tracking mutations need a key, and those are out of scope here).
 **Dependencies**: None (plain `bun` + `fetch`). `bun install` is optional and only pulls dev type defs.
 
-> **Hosted-service dependency.** This skill talks to freehire.dev, a personal
+> **Hosted-service dependency.** This skill talks to freehire.me, a personal
 > project maintained on a **best-effort basis with no formal SLA**. If the API is
 > unreachable the CLI exits non-zero with a clear error rather than hanging, so an
 > outage degrades gracefully instead of breaking the caller. Point `FREEHIRE_API_URL`
@@ -25,7 +25,7 @@ The CLI runs without any install because it has zero runtime dependencies.
 
 ## Self-hosting / base URL
 
-The base URL defaults to `https://freehire.dev` and is overridable with an env var:
+The base URL defaults to `https://freehire.me` and is overridable with an env var:
 
 ```bash
 FREEHIRE_API_URL=http://localhost:8080 bun run src/cli.ts search -q "go"
@@ -43,6 +43,14 @@ Compose (`make up` → API on `:8080`, same `/api/v1/...` paths).
 
 `search` accepts `--format json|table|plain` (default `json`); `detail` accepts `--format json|plain`.
 All errors are written to **stderr** as `{ "error": "...", "code": "..." }` with exit code `1`.
+One diagnostic is a warning instead: a `--region` value outside the documented vocabulary
+prints `{ "warning": "...", "code": "REGION_VALUE_UNKNOWN" }` to stderr after the results,
+and exits `0`, leaving stdout a valid JSON document.
+
+`search` hits the API's agent endpoint, so by default every JSON result already carries the
+posting's **full** description (Markdown by default, `--description-format
+text|html` to change it; `--no-description` sets it to `null`). `detail` remains for looking a single posting up by
+slug — including a closed one, which search does not return.
 
 ## Quick examples
 
@@ -66,11 +74,11 @@ See `../SKILL.md` for the full flag reference and the hosted-dependency note.
 
 | Flag | Alias | Description |
 |------|-------|-------------|
-| `--query` | `-q` | Keywords (title / skill / role). Full-text; optional. |
+| `--query` | `-q` | Keywords (title / skill / role). Full-text; optional. `a OR b` matches either (uppercase `OR`, max 5 alternatives); a leading `title:` searches the job title only. |
 | `--jobage` | | Posted within N days (`posted_within_days`). |
 | `--page` | | 1-indexed page. Default 1. |
 | `--limit` | `-n` | Results per page (API limit). Default 25. |
-| `--region` | | Macro-region(s), comma = OR (e.g. `eu,us`). |
+| `--region` | | Macro-region(s), comma = OR: `global`, `eu`, `uk`, `north_america`, `latam`, `apac`, `mena`, `africa`, `cis` (e.g. `eu,uk`). A country such as `us` goes in `--country`. |
 | `--country` | | ISO-3166 alpha-2 code(s). |
 | `--city` | | City name(s). |
 | `--seniority` | | Seniority level(s). |
@@ -80,8 +88,9 @@ See `../SKILL.md` for the full flag reference and the hosted-dependency note.
 | `--remote` | | `remote` \| `hybrid` \| `onsite` (`work_mode`). |
 | `--facet` | | Any other facet as `key=value` (repeatable). |
 | `--format` | | `json` \| `table` \| `plain`. |
+| `--description-format` | | `markdown` (default) \| `text` \| `html` — how each result's full description is rendered (`json` output only). |
 
 Facet values come from freehire's controlled vocabularies. Discover the live
 values (with counts) for a market at
-[`/api/v1/jobs/facets`](https://freehire.dev/api/v1/jobs/facets), or narrow it,
-e.g. `https://freehire.dev/api/v1/jobs/facets?q=react`.
+[`/api/v1/jobs/facets`](https://freehire.me/api/v1/jobs/facets), or narrow it,
+e.g. `https://freehire.me/api/v1/jobs/facets?q=react`.

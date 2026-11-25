@@ -18,6 +18,7 @@ Usage:
 """
 
 import json
+import math
 import sys
 import re
 import argparse
@@ -26,16 +27,17 @@ from pathlib import Path
 
 DATA_FILE = Path(__file__).parent / "salary_data.json"
 
-# Common Danish <-> anglicized spelling variants
+# Common Nordic <-> anglicized spelling variants
 SPELLING_VARIANTS = {
     "ø": "o", "æ": "ae", "å": "aa",
     "ö": "o", "ä": "ae", "ü": "u",
+    "þ": "th", "ð": "d",
 }
 
 # Legal suffixes and noise to strip when matching company names
 STRIP_PATTERNS = [
     r"\ba/s\b", r"\baps\b", r"\bi/s\b", r"\bp/s\b", r"\bk/s\b",
-    r"\bivs\b", r"\bamba\b", r"\ba\.m\.b\.a\.\b",
+    r"\bivs\b", r"\bamba\b", r"\ba\.m\.b\.a\.?\b",
     r"\(vg\)", r"\(.*?\)",  # (VG) and other parentheticals
     r"\bdanmark\b", r"\bdenmark\b", r"\bscandinavia\b", r"\bnordic\b",
     r"\bgroup\b", r"\bholding\b",
@@ -51,39 +53,104 @@ def fail_data_error(message):
     sys.exit(1)
 
 
-def validate_data(data):
-    """Validate the salary data shape before lookups use it."""
+def collect_validation_issues(data):
+    """Return (errors, warnings) for the salary data shape.
+
+    errors   -> hard problems that make lookups crash or emit wrong output
+                (these cause validate_data() to exit(1)).
+    warnings -> usability concerns that still work (e.g. duplicate company
+                names); --validate reports them but exits 0.
+    """
+    errors = []
+    warnings = []
+
     if not isinstance(data, dict):
-        fail_data_error("top-level JSON value must be an object")
+        errors.append("top-level JSON value must be an object")
+        return errors, warnings
 
     metadata = data.get("metadata", {})
     if metadata is not None and not isinstance(metadata, dict):
-        fail_data_error("'metadata' must be an object when provided")
+        errors.append("'metadata' must be an object when provided")
+    elif isinstance(metadata, dict):
+        baseline = metadata.get("index_baseline", 100)
+        try:
+            finite_baseline = math.isfinite(baseline)
+        except (TypeError, OverflowError):
+            finite_baseline = False
+        if isinstance(baseline, bool) or not finite_baseline:
+            errors.append("'metadata.index_baseline' must be a finite number")
+        if not isinstance(metadata.get("index_label", "Index"), str):
+            errors.append("'metadata.index_label' must be a string")
 
     companies = data.get("companies")
     if not isinstance(companies, list):
-        fail_data_error("'companies' must be a list")
+        errors.append("'companies' must be a list")
+        return errors, warnings
 
+    seen_companies = {}
     for index, entry in enumerate(companies, start=1):
         if not isinstance(entry, dict):
-            fail_data_error(f"companies[{index}] must be an object")
+            errors.append(f"companies[{index}] must be an object")
+            continue
 
         company = entry.get("company")
         if not isinstance(company, str) or not company.strip():
-            fail_data_error(f"companies[{index}].company must be a non-empty string")
+            errors.append(f"companies[{index}].company must be a non-empty string")
+        else:
+            key = company.lower()
+            if key in seen_companies:
+                warnings.append(
+                    f"Duplicate company name '{company}' "
+                    f"(companies[{seen_companies[key]}] and companies[{index}])"
+                )
+            else:
+                seen_companies[key] = index
 
         city = entry.get("city")
         if city is not None and not isinstance(city, str):
-            fail_data_error(f"companies[{index}].city must be a string when provided")
+            errors.append(f"companies[{index}].city must be a string when provided")
 
         categories = entry.get("categories", {})
         if categories is not None and not isinstance(categories, dict):
-            fail_data_error(f"companies[{index}].categories must be an object when provided")
+            errors.append(f"companies[{index}].categories must be an object when provided")
+        elif categories:
+            for cat_label, cat_data in categories.items():
+                if not isinstance(cat_data, dict):
+                    errors.append(
+                        f"companies[{index}].categories.{cat_label} must be an object "
+                        f"with 'count' and/or 'index' (got {type(cat_data).__name__})"
+                    )
+                    continue
+                count = cat_data.get("count")
+                if count is not None and not isinstance(count, (int, float)):
+                    errors.append(
+                        f"companies[{index}].categories.{cat_label}.count must be a "
+                        f"number (got {type(count).__name__})"
+                    )
+                index_val = cat_data.get("index")
+                if index_val is not None and not isinstance(index_val, (int, float, str)):
+                    errors.append(
+                        f"companies[{index}].categories.{cat_label}.index must be a "
+                        f"number or string (got {type(index_val).__name__})"
+                    )
 
+    return errors, warnings
+
+
+def validate_data(data):
+    """Validate the salary data shape before lookups use it.
+
+    Preserves historical behavior: exits(1) on the first hard error with the
+    same user-facing message, and returns data unchanged when valid.
+    """
+    errors, _ = collect_validation_issues(data)
+    if errors:
+        fail_data_error(errors[0])
     return data
 
 
-def load_data():
+def read_raw_data():
+    """Load and JSON-parse salary_data.json; exit with a helpful message if missing/invalid."""
     if not DATA_FILE.exists():
         print("Error: salary_data.json not found.", file=sys.stderr)
         print("", file=sys.stderr)
@@ -94,36 +161,52 @@ def load_data():
         print("step will be skipped during /apply.", file=sys.stderr)
         sys.exit(1)
     try:
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
+        with open(DATA_FILE, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
     except json.JSONDecodeError as exc:
         fail_data_error(f"invalid JSON at line {exc.lineno}, column {exc.colno}: {exc.msg}")
-    return validate_data(data)
+    return data
+
+
+def load_data():
+    """Load, parse, and validate salary_data.json for lookups."""
+    return validate_data(read_raw_data())
 
 
 def normalize(s):
     """Normalize string for robust fuzzy matching."""
-    s = s.lower().strip()
+    s = unicodedata.normalize("NFC", s.casefold()).strip()
     for pat in STRIP_PATTERNS:
         s = re.sub(pat, "", s)
-    s = re.sub(r"[^a-zæøåöäü0-9]", "", s)
-    return s.strip()
+    return "".join(
+        char for char in s
+        if char.isalnum() or unicodedata.category(char).startswith("M")
+    )
 
 
 def anglicize(s):
-    """Convert Danish/Nordic characters to anglicized equivalents."""
+    """Fold Nordic spellings first, then accents for ASCII-typed queries."""
     s = s.lower()
     for danish, english in SPELLING_VARIANTS.items():
         s = s.replace(danish, english)
-    return s
+    return "".join(
+        char for char in unicodedata.normalize("NFKD", s)
+        if not unicodedata.combining(char)
+    )
 
 
 def extract_core_words(s):
     """Extract meaningful words from a company name, ignoring noise."""
-    s = s.lower()
+    s = unicodedata.normalize("NFC", s.casefold())
     for pat in STRIP_PATTERNS:
         s = re.sub(pat, "", s)
-    words = re.findall(r"[a-zæøåöäü0-9]+", s)
+    # Keep the same identity as normalize(), including combining marks in
+    # scripts where NFC cannot compose them into a single letter.
+    s = "".join(
+        char if char.isalnum() or unicodedata.category(char).startswith("M") else " "
+        for char in s
+    )
+    words = s.split()
     return [w for w in words if len(w) > 1]
 
 
@@ -231,6 +314,11 @@ def search_company(data, query, city=None):
 
 def format_entry(entry, metadata):
     """Format a single company entry for display."""
+    # `metadata` and `entry["categories"]` may be an explicit null: --validate
+    # treats a null the same as an omitted key ("...must be an object when
+    # provided"), but dict.get(key, default) only substitutes the default for an
+    # absent key, so a null reached `.get()`/`[]` here and crashed the lookup.
+    metadata = metadata or {}
     lines = []
     lines.append(f"\n{'='*60}")
     lines.append(f"  {entry['company']}")
@@ -238,8 +326,8 @@ def format_entry(entry, metadata):
         lines.append(f"  Location: {entry['city']}")
     lines.append(f"{'='*60}")
 
-    # Get category data (everything except company/city fields)
-    categories = entry.get("categories", {})
+    # Get category data (everything except company/city fields).
+    categories = entry.get("categories") or {}
     if not categories:
         # Fallback: treat any numeric fields as categories
         skip_keys = {"company", "city", "categories"}
@@ -254,6 +342,7 @@ def format_entry(entry, metadata):
         lines.append(f"  {'Category':<22} {'Count':>6} {index_label:>8}  {'vs Baseline':>10}")
         lines.append(f"  {'-'*50}")
 
+        suppressed = False  # did any row render its index as N/A*?
         for label, data in categories.items():
             display_label = label.replace("_", " ").title()
             count = data.get("count")
@@ -271,12 +360,20 @@ def format_entry(entry, metadata):
                 elif index is not None:
                     index_str = str(index)
                     diff_str = ""
+                elif "index" not in data:
+                    index_str = "-"
+                    diff_str = ""
                 else:
                     index_str = "N/A*"
                     diff_str = ""
+                    suppressed = True
                 lines.append(f"  {display_label:<22} {count_str:>6} {index_str:>8}  {diff_str:>10}")
 
-        lines.append(f"\n  * N/A = Too few employees to publish (privacy)")
+        # The footnote explains the N/A* marker; printing it under a table with
+        # no such row asserts a privacy suppression that did not happen.
+        lines.append("")
+        if suppressed:
+            lines.append("  * N/A = Too few employees to publish (privacy)")
         if metadata.get("baseline_description"):
             lines.append(f"  {metadata['baseline_description']}")
         else:
@@ -292,13 +389,58 @@ def format_entry(entry, metadata):
     return "\n".join(lines)
 
 
+def print_validation_report(errors, warnings):
+    """Print an actionable validation report. Returns the process exit code."""
+    if not errors and not warnings:
+        print("OK - no issues found.")
+        return 0
+    print(f"Found {len(errors) + len(warnings)} issue(s):")
+    if errors:
+        print("  Errors:")
+        for i, msg in enumerate(errors, start=1):
+            print(f"    [{i}] {msg}")
+    if warnings:
+        print("  Warnings:")
+        for i, msg in enumerate(warnings, start=1):
+            print(f"    [{i}] {msg}")
+    if errors:
+        print("")
+        print("Fix the errors above, then re-run. See tools/README_SALARY_TOOL.md "
+              "for the expected format.")
+        return 1
+    return 0
+
+
+def _force_utf8_output() -> None:
+    """Write UTF-8 whatever the host's default encoding is.
+
+    A piped stdout on Windows defaults to the ANSI code page (cp1252 on most
+    Western installs), so printing a company, title or file name outside it
+    raised UnicodeEncodeError before the workflow saw any output.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)  # absent on a StringIO under test
+        if reconfigure:
+            reconfigure(encoding="utf-8")
+
+
 def main():
+    _force_utf8_output()
     parser = argparse.ArgumentParser(description="Salary Benchmark Lookup")
     parser.add_argument("company", nargs="?", help="Company name to search for")
     parser.add_argument("--city", help="Filter by city name")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument("--list-all", action="store_true", help="List all companies")
+    parser.add_argument("--validate", action="store_true",
+                        help="Validate salary_data.json and print a report, then exit")
     args = parser.parse_args()
+
+    if args.validate:
+        data = read_raw_data()
+        errors, warnings = collect_validation_issues(data)
+        print(f"Validating {DATA_FILE.name} ...")
+        print("")
+        sys.exit(print_validation_report(errors, warnings))
 
     data = load_data()
     metadata = data.get("metadata", {})

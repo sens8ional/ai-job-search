@@ -79,6 +79,7 @@ On Windows, use `py` if that is how Python is exposed on your PATH. If your syst
 
 The converter auto-detects the Excel layout:
 - Looks for a "Company"/"Firma" column and an optional "City"/"By" column
+- A combined header such as "Firmanavn og by" or "Company and City" (no separate city column) is split on the last comma, with both parts stripped, so `salary_lookup.py --city` can filter. Cells look like "Ørsted A/S,Fredericia"; a company name may itself contain ", " ("Rambøll Danmark A/S, Odense,Odense C")
 - Treats remaining columns as salary data (auto-pairs count/index columns)
 
 ### Option C: Build from research
@@ -113,6 +114,7 @@ python3 salary_lookup.py "Novo Nordisk"
 python3 salary_lookup.py "Ørsted" --city "Fredericia"
 python3 salary_lookup.py "COWI" --json
 python3 salary_lookup.py --list-all
+python3 salary_lookup.py --validate      # pre-flight check your salary_data.json
 ```
 
 ## Important notes
@@ -120,3 +122,4 @@ python3 salary_lookup.py --list-all
 - The data file (`salary_data.json`) is **excluded from git** (see `.gitignore`). Your salary data may be proprietary or confidential.
 - If the data file is missing, `salary_lookup.py` exits with a helpful error message and the `/apply` workflow skips the salary benchmark step.
 - The fuzzy matcher handles Danish company name variations: legal suffixes, Nordic characters, anglicized spellings, and partial matches.
+- `--validate` checks your data file for malformed category values and duplicate company names and prints a report, without performing a lookup.

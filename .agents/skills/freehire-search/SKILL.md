@@ -3,7 +3,7 @@ name: freehire-search
 version: 1.0.0
 description: >
   Use this skill to search live software / tech / data / engineering job listings
-  across many countries and markets (and remote) via the freehire.dev aggregator's
+  across many countries and markets (and remote) via the freehire.me aggregator's
   public API, or to look up a specific posting. It aggregates roles from ~50 ATS
   platforms into one schema, so a single skill covers many markets — but its faceted
   filtering (skills, category, seniority) is tuned tech-first, so scope triggers to
@@ -11,12 +11,13 @@ description: >
   jobs, engineering vacancies, data/ML jobs, DevOps roles, remote developer jobs,
   "are there any <tech role> jobs in <place>", look up this freehire job posting.
 context: fork
+enabled: true  # set to false to keep this portal installed but have /scrape skip it
 allowed-tools: Bash(bun run .agents/skills/freehire-search/cli/src/cli.ts *)
 ---
 
 # freehire Search Skill
 
-Search live job listings from the **[freehire.dev](https://freehire.dev)** job
+Search live job listings from the **[freehire.me](https://freehire.me)** job
 aggregator — an open-source IT job board that normalizes postings from ~50 ATS
 platforms across many countries into one schema. No authentication, no API key,
 and **zero runtime dependencies** — it runs with just `bun`. The market is chosen
@@ -39,10 +40,10 @@ coverage exists but is still maturing; don't rely on this skill for general
 
 ## ℹ️ Hosted-service dependency (best-effort, no SLA)
 
-This skill depends on a third-party hosted service, freehire.dev. Reads are
+This skill depends on a third-party hosted service, freehire.me. Reads are
 **public and unauthenticated** — the same zero-signup bar as `linkedin-search`.
 
-**freehire.dev is a personal project but actively maintained; it runs on a
+**freehire.me is a personal project but actively maintained; it runs on a
 best-effort basis (no formal SLA).** If the API is unreachable, the CLI fails
 gracefully — a non-zero exit with a clear error message — so an outage degrades
 this source rather than breaking the surrounding workflow.
@@ -51,7 +52,7 @@ this source rather than breaking the surrounding workflow.
 MIT-licensed repo — [`strelov1/freehire`](https://github.com/strelov1/freehire)
 (Go + PostgreSQL + Meilisearch) — that stands up with one command via Docker
 Compose (`make up` → API on `:8080`, same `/api/v1/...` paths). The skill honors a
-base-URL env var, `FREEHIRE_API_URL` (default `https://freehire.dev`), so pointing
+base-URL env var, `FREEHIRE_API_URL` (default `https://freehire.me`), so pointing
 it at a local instance is a one-line change:
 
 ```bash
@@ -65,9 +66,10 @@ at the hosted API.
 
 ## When to use this skill
 
-- Search for tech job openings by keyword, in a given region/country or remotely
+- Search for tech job openings by keyword, in a given region/country or remotely —
+  each result comes back with its **full description**, no per-hit follow-up needed
 - Filter by seniority, category, skills, or recency (posted within N days)
-- Get the full description of a specific freehire posting by its slug
+- Look one freehire posting up by its slug (including a closed one)
 
 ## Commands
 
@@ -77,28 +79,65 @@ at the hosted API.
 bun run .agents/skills/freehire-search/cli/src/cli.ts search [-q "<keywords>"] [facet flags]
 ```
 
+Query syntax: quotes require every quoted word (any order, not a contiguous phrase); `-word` excludes; uppercase `OR` between terms matches any alternative (max 5, merged and deduplicated server-side); `title:` at the start of an alternative matches it in the title only, e.g. `title:"product owner" -junior OR title:produktchef`.
+
 Key flags:
 - `--query <text>` / `-q <text>` — keyword search (title, skill, role). Full-text; optional.
+  Supports `OR` and `title:` (see "Query operators" below).
 - `--jobage <days>` — posted within N days (maps to `posted_within_days`).
 - `--page <n>` — 1-indexed page. Default 1.
 - `--limit <n>` / `-n <n>` — results per page (API limit). Default 25.
 - `--format json|table|plain` — default `json`.
+- `--description-format markdown|text|html` — how each result's full description is
+  rendered. Default `markdown`, which keeps the posting's headings and requirement
+  lists intact. `json` output only.
+
+**Query operators.** `-q` understands two operators; the CLI passes the text through
+unchanged and the API parses it:
+
+- `OR` between alternatives returns jobs matching **any** of them, e.g.
+  `-q "golang OR rust"`. Uppercase only: a lowercase `or` is an ordinary search
+  word. Plain space-separated words are **not** a union (`-q "golang rust"` returns
+  fewer jobs than `-q golang` alone), so use `OR` for synonyms and alternative stacks
+  instead of running one search per keyword. At most 5 alternatives; a 6th is
+  rejected with an error. An `OR` inside double quotes is literal text.
+- A leading `title:` restricts that alternative to the job **title**, e.g.
+  `-q "title:staff engineer"` skips postings that merely mention the words in their
+  description. It applies per alternative, so repeat it on each one:
+  `-q "title:staff engineer OR title:principal engineer"`. It only counts at the start
+  of an alternative; `title:` in the middle is searched as text. Quotes work inside it:
+  `-q 'title:"staff engineer"'` matches the phrase.
+
+Facet flags, `--jobage`, `--page` and `--limit` apply to the combined result: every
+alternative is filtered the same way, and a job matching several alternatives
+appears once.
+
+**Search results already carry the full description.** This skill queries freehire's
+agent search endpoint, which replaces the index's truncated preview with each
+posting's complete text, so a search of 20 roles is 1 request rather than 1 + 20.
+Do **not** loop `detail` over search hits to read their descriptions — reach for
+`detail` only to look one posting up by slug (e.g. from the tracker, or a posting
+already closed and therefore absent from search). Full descriptions are verbose:
+keep `--limit` modest, and pre-filter on title/company before reading bodies -
+or pass `--no-description` for a cheap discovery pass that keeps every other
+field and drops the bodies entirely (fetch a shortlisted job's body with
+`detail`, or re-run the search without the flag).
 
 Facet filters (values come from freehire's controlled vocabularies; comma-separate for OR within a facet):
-- `--region <codes>` — macro-region, e.g. `global`, `eu`, `us`, `apac`, `latam`, `cis`. `--region eu,us`. Use `none` to match jobs whose region could **not** be resolved (see "Partial data" below).
+- `--region <codes>` - macro-region: `global`, `eu`, `uk`, `north_america`, `latam`, `apac`, `mena`, `africa`, `cis`. `--region eu,uk`. `eu` does not include the UK; add `uk` for Europe as a whole. For a single country use `--country` instead - `us` is a country code, not a region, and `--region us` matches nothing. `--region`, `--country` and `--city` form one OR-group, so `--country us` alone scopes to the US. Use `none` to match jobs whose region could **not** be resolved (see "Partial data" below).
 - `--country <codes>` — ISO-3166 alpha-2, e.g. `--country DE,GB`
 - `--city <names>` — city name(s), e.g. `--city Berlin`
 - `--seniority <levels>` — `junior`, `middle`, `senior`, `staff`, `principal`, `lead`, …
 - `--category <cats>` — `backend`, `frontend`, `fullstack`, `devops`, `ml_ai`, `qa`, …
 - `--skill <names>` — canonical skill(s), e.g. `--skill go,kubernetes`
 - `--company <slug>` — company slug (from a result's `company_slug`)
-- `--remote <mode>` — `remote` | `hybrid` | `onsite` (`work_mode` facet)
+- `--remote <mode>` — `remote` | `hybrid` | `onsite` (`work_mode` facet). A bare `--remote` means `remote`. Comma-separate for OR (`remote,hybrid`; `on-site` normalises to `onsite`). An unknown item exits 1 with `BAD_ARG`.
 - `--facet <key=value>` — any other facet param (repeatable), e.g. `--facet salary_min=100000`
 
 > **Location is a facet, not free text.** Unlike `linkedin-search`'s `--location`,
 > freehire filters geography through the structured `--region`/`--country`/`--city`
 > facets. Discover the live values for a market at
-> [`/api/v1/jobs/facets`](https://freehire.dev/api/v1/jobs/facets) (append `?q=<role>`
+> [`/api/v1/jobs/facets`](https://freehire.me/api/v1/jobs/facets) (append `?q=<role>`
 > to scope it) — never invent facet values.
 
 ### Fetch full job detail
@@ -108,15 +147,26 @@ bun run .agents/skills/freehire-search/cli/src/cli.ts detail <slug|url> [--forma
 ```
 
 `slug` is the `id` from a `search` result (e.g. `golang-zensar-2bxu6dxm`). You may
-also pass a full `https://freehire.dev/jobs/<slug>` URL. Returns the full (HTML-stripped)
+also pass a full `https://freehire.me/jobs/<slug>` URL. A URL on any other host - including the employer apply link a search result's `url` field carries - is rejected with `BAD_ID` before any request. Returns the full (HTML-stripped)
 description, skills, region/country, and — when the posting is enriched — seniority,
-category, employment type, and salary.
+category, employment type, and salary. `salary` keeps its period when freehire records
+one (`INR 300000–300000/year`, `INR 12000/month`); compare pay only in one period.
+
+Use it for a posting you already have a slug for — a tracked application, a shared
+link, or a closed posting search no longer lists. Re-fetching a hit that `search`
+just returned only re-reads a description you already have.
 
 ## Usage examples
 
 ```bash
 # Senior backend roles, table view
 bun run .agents/skills/freehire-search/cli/src/cli.ts search -q "backend engineer" --seniority senior --limit 10 --format table
+
+# Go or Rust roles, one search (OR must be uppercase)
+bun run .agents/skills/freehire-search/cli/src/cli.ts search -q "golang OR rust" --remote remote --format table
+
+# Staff or principal titles only, not postings that mention them in passing
+bun run .agents/skills/freehire-search/cli/src/cli.ts search -q "title:staff engineer OR title:principal engineer" --format table
 
 # Remote React roles in the EU
 bun run .agents/skills/freehire-search/cli/src/cli.ts search -q "react" --remote remote --region eu --format table
@@ -127,6 +177,9 @@ bun run .agents/skills/freehire-search/cli/src/cli.ts search --category devops -
 # ML/AI roles anywhere, fully remote
 bun run .agents/skills/freehire-search/cli/src/cli.ts search -q "machine learning" --category ml_ai --remote remote --format table
 
+# Descriptions as plain text instead of Markdown
+bun run .agents/skills/freehire-search/cli/src/cli.ts search -q "platform engineer" --limit 5 --description-format text
+
 # Full details for a specific job
 bun run .agents/skills/freehire-search/cli/src/cli.ts detail golang-zensar-2bxu6dxm --format plain
 ```
@@ -135,14 +188,20 @@ bun run .agents/skills/freehire-search/cli/src/cli.ts detail golang-zensar-2bxu6
 
 | Format | Best for |
 |--------|----------|
-| `json` | Default — programmatic use, passing a result's `id` (slug) to `detail` |
+| `json` | Default — programmatic use; the only format carrying each hit's description |
 | `table` | Quick human-readable scanning |
 | `plain` | Reading a single job's full detail (`detail` command) |
 
 Search JSON is `{ "meta": { "count", "page", "total" }, "results": [...] }`; each
 result carries at least `id` (the freehire slug), `title`, `company`, `location`,
-`date`, and `url` (missing values are `null`). All errors are written to **stderr**
-as `{ "error": "...", "code": "..." }` and the process exits with code `1`.
+`date`, `url`, and `description` (missing values are `null`). `table` and `plain`
+omit the description — it would swamp a scannable list. All errors are written to
+**stderr** as `{ "error": "...", "code": "..." }` and the process exits with code `1`.
+
+One diagnostic is not an error: a `--region` (or `--facet regions=`) value outside the
+documented vocabulary - `us` is a country code, not a region - prints
+`{ "warning": "...", "code": "REGION_VALUE_UNKNOWN" }` on **stderr** after the results,
+and the process still exits `0` with stdout a valid JSON document.
 
 ## Partial data
 
@@ -162,12 +221,16 @@ dictionaries never guess). So:
 
 ## Notes
 
-- Data is from freehire.dev's public API — no credentials required. Only per-user
+- Data is from freehire.me's public API — no credentials required. Only per-user
   tracking (apply/save) needs a key, and this skill deliberately does not touch it:
   it is **search + detail only**.
 - `id` in search results is the freehire `public_slug` — pass it as-is to `detail`.
-- `date` is the posting date (`posted_at`); it may be `null` for undated postings.
+- `date` is the posting date as `YYYY-MM-DD` (the date part of the API's `posted_at` timestamp, the shape every portal CLI emits); it may be `null` for undated postings.
 - Facet values are controlled vocabularies. Use `/api/v1/jobs/facets` to see the
   live values (with counts) for a query before filtering.
 - The API retries 429/5xx with exponential backoff; an unreachable API exits
   non-zero with a clear message (best-effort service, see the dependency note above).
+- `search` calls `/api/v1/agent/jobs/search` (public, like the rest); `--no-description`
+  calls the lighter `/api/v1/jobs/search`, which serves no full bodies. A self-hosted
+  instance older than that endpoint answers 404, and the CLI reports it as an error
+  naming the endpoint — never as an empty result set.
