@@ -48,7 +48,7 @@ async function main() {
     const limit = int(flags, "limit", 50, 1, 500)
     let employers = (await loadEmployers(path)).filter((e) => e.ats && e.slug)
     if (tag) employers = employers.filter((e) => e.tags?.includes(tag))
-    if (only) employers = employers.filter((e) => e.name.toLowerCase().includes(only) || e.slug.toLowerCase() === only)
+    if (only) employers = employers.filter((e) => e.name.toLowerCase().includes(only) || (e.slug ?? "").toLowerCase() === only)
     const results: JobResult[] = []
     const failed: string[] = []
     for (const e of employers) {
